@@ -417,7 +417,13 @@ public class Calendar extends CordovaPlugin {
             }
           }
 
-          Calendar.this.cordova.startActivityForResult(Calendar.this, calIntent, RESULT_CODE_CREATE);
+          try {
+              // fix for google calendar app to open in new window (no as popup)
+              Calendar.this.cordova.getActivity().startActivity(calIntent);
+          } catch (Exception e) {
+              // let use old code when fix isn't work (for 100% sure that calendar will bne opened)
+              Calendar.this.cordova.startActivityForResult(Calendar.this, calIntent, RESULT_CODE_CREATE);
+          }
         }
       });
     } catch (JSONException e) {
