@@ -55,7 +55,7 @@ cordova plugin add cordova-plugin-calendar --variable CALENDAR_USAGE_DESCRIPTION
 ### Automatically
 Bleeding edge, from github:
 ```
-$ cordova plugin add https://github.com/Skaaala/Calendar-PhoneGap-Plugin
+$ cordova plugin add https://github.com/Skaaala/Calendar-PhoneGap-Plugin.git
 ```
 
 ## 3. Usage
