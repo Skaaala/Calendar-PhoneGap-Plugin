@@ -68,6 +68,9 @@ public class Calendar extends CordovaPlugin {
   private JSONArray requestArgs;
   private CallbackContext callback;
 
+  private boolean creatingEventInProgress = false;
+  private long createEventMaxId;
+
   private static final String LOG_TAG = AbstractCalendarAccessor.LOG_TAG;
 
   @Override
@@ -370,8 +373,13 @@ public class Calendar extends CordovaPlugin {
             isAllDayEvent = AbstractCalendarAccessor.isAllDayEvent(new Date(jsonFilter.optLong("startTime")),
                 new Date(jsonFilter.optLong("endTime")));
           }
-          final Intent calIntent = new Intent(Intent.ACTION_EDIT).setType("vnd.android.cursor.item/event")
-              .putExtra("title", getPossibleNullString("title", jsonFilter)).putExtra("hasAlarm", 1);
+        
+          final Intent calIntent = new Intent(Intent.ACTION_EDIT)
+              //.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+              .setType("vnd.android.cursor.item/event")
+              .putExtra("title", getPossibleNullString("title", jsonFilter))
+              .putExtra("hasAlarm", 1);      
+
           if (isAllDayEvent) {
             calIntent.putExtra("allDay", isAllDayEvent)
                 .putExtra("beginTime",
@@ -417,9 +425,12 @@ public class Calendar extends CordovaPlugin {
             }
           }
 
+          creatingEventInProgress = true;
+          createEventMaxId = getActualMaxCalendarId();
           try {
               // fix for google calendar app to open in new window (no as popup)
               Calendar.this.cordova.getActivity().startActivity(calIntent);
+              //Calendar.this.cordova.startActivityForResult(Calendar.this, calIntent, RESULT_CODE_CREATE);
           } catch (Exception e) {
               // let use old code when fix isn't work (for 100% sure that calendar will bne opened)
               Calendar.this.cordova.startActivityForResult(Calendar.this, calIntent, RESULT_CODE_CREATE);
@@ -700,7 +711,8 @@ public class Calendar extends CordovaPlugin {
       if (resultCode == Activity.RESULT_OK || resultCode == Activity.RESULT_CANCELED) {
         // resultCode may be 0 (RESULT_CANCELED) even when it was created, so passing nothing is the clearest option here
         Log.d(LOG_TAG, "onActivityResult resultcode: " + resultCode);
-        callback.success();
+        sendNewCalendarEventIdToCallback();
+
       } else {
         // odd case
         Log.d(LOG_TAG, "onActivityResult weird resultcode: " + resultCode);
@@ -714,6 +726,31 @@ public class Calendar extends CordovaPlugin {
       callback.error("Unable to add event (" + resultCode + ").");
     }
   }
+
+  private long getActualMaxCalendarId() {
+    ContentResolver contentResolver = Calendar.this.cordova.getActivity().getContentResolver();
+    Cursor cursor = contentResolver.query(Events.CONTENT_URI, new String [] {"MAX(_id) as max_id"}, null, null, "_id");
+    cursor.moveToFirst();
+    long max_val = cursor.getLong(cursor.getColumnIndex("max_id")); 
+    return max_val;
+  }
+
+  private void sendNewCalendarEventIdToCallback(){ 
+    if(creatingEventInProgress){
+      creatingEventInProgress = false;
+      long actualMaxCalendarId = getActualMaxCalendarId();
+
+      if(createEventMaxId != actualMaxCalendarId){
+        String response = "YES >> before create event id = " + createEventMaxId + ", after create event id = " + getActualMaxCalendarId() + ", creating in progress = " + creatingEventInProgress;
+        callback.sendPluginResult(new PluginResult(PluginResult.Status.OK, response));
+      }
+    }
+  }
+
+  public void onResume(boolean multitasking){
+    sendNewCalendarEventIdToCallback();
+  }
+
 
   public static String formatICalDateTime(Date date) {
     final SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'");
