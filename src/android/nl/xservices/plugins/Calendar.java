@@ -51,6 +51,7 @@ public class Calendar extends CordovaPlugin {
   private static final String ACTION_DELETE_CALENDAR = "deleteCalendar";
 
   // write permissions
+
   private static final int PERMISSION_REQCODE_CREATE_CALENDAR = 100;
   private static final int PERMISSION_REQCODE_DELETE_CALENDAR = 101;
   private static final int PERMISSION_REQCODE_CREATE_EVENT = 102;
@@ -211,6 +212,8 @@ public class Calendar extends CordovaPlugin {
       listCalendars();
     } else if (requestCode == PERMISSION_REQCODE_LIST_EVENTS_IN_RANGE) {
       listEventsInRange(requestArgs);
+    } else {
+      this.callback.success();
     }
   }
 
@@ -375,7 +378,6 @@ public class Calendar extends CordovaPlugin {
           }
         
           final Intent calIntent = new Intent(Intent.ACTION_EDIT)
-              //.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
               .setType("vnd.android.cursor.item/event")
               .putExtra("title", getPossibleNullString("title", jsonFilter))
               .putExtra("hasAlarm", 1);      
@@ -711,7 +713,7 @@ public class Calendar extends CordovaPlugin {
       if (resultCode == Activity.RESULT_OK || resultCode == Activity.RESULT_CANCELED) {
         // resultCode may be 0 (RESULT_CANCELED) even when it was created, so passing nothing is the clearest option here
         Log.d(LOG_TAG, "onActivityResult resultcode: " + resultCode);
-        sendNewCalendarEventIdToCallback();
+        callback.success();
 
       } else {
         // odd case
@@ -736,19 +738,31 @@ public class Calendar extends CordovaPlugin {
   }
 
   private void sendNewCalendarEventIdToCallback(){ 
-    if(creatingEventInProgress){
-      creatingEventInProgress = false;
       long actualMaxCalendarId = getActualMaxCalendarId();
 
-      if(createEventMaxId != actualMaxCalendarId){
-        String response = "YES >> before create event id = " + createEventMaxId + ", after create event id = " + getActualMaxCalendarId() + ", creating in progress = " + creatingEventInProgress;
-        callback.sendPluginResult(new PluginResult(PluginResult.Status.OK, response));
-      }
-    }
+      if((createEventMaxId + 1) == actualMaxCalendarId){
+        try {
+          JSONObject response = new JSONObject();
+          response.put("id", actualMaxCalendarId);
+          callback.sendPluginResult(new PluginResult(PluginResult.Status.OK, response));
+        } catch (Exception e) {}
+      } 
+      /*else {
+        try {
+          JSONObject response = new JSONObject();
+          response.put("createEventMaxId", createEventMaxId);
+          response.put("actualMaxCalendarId", actualMaxCalendarId)
+          callback.sendPluginResult(new PluginResult(PluginResult.Status.OK, response));
+        } catch (Exception e) {}
+      }*/
+    
   }
 
   public void onResume(boolean multitasking){
-    sendNewCalendarEventIdToCallback();
+    if(creatingEventInProgress){
+      sendNewCalendarEventIdToCallback();
+      creatingEventInProgress = false;
+    }
   }
 
 
